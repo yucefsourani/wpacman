@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+#  wpacman.py
+#  
+#  Copyright 2022 yucef sourani <youssef.m.sourani@gmail.com>
+from gi.repository import  Gio,GLib
+import os
+import sys
+import time
+import random 
+
+def islocked():
+    return os.path.exists("/var/lib/pacman/db.lck")
+    
+def run_task():
+    if len(sys.argv)>1:
+        options = " ".join(sys.argv[1:])
+    else:
+        options = ""
+    os.system("pacman {}".format(options))
+    
+def on_file_lock_stat_changed(file_monitor, _file, other_file, event_type,loop):
+    if event_type == Gio.FileMonitorEvent.DELETED:
+        time.sleep(random.random())
+        if islocked():
+            return
+        loop.quit()
+        run_task()
+        
+
+if not islocked():
+    run_task()
+else:
+    print("Waiting another pacman process to finish")
+    loop = GLib.MainLoop()
+    lock_file         =   Gio.File.new_for_path("/var/lib/pacman/db.lck")
+    lock_file_monitor = lock_file.monitor_file(Gio.FileMonitorFlags.NONE,None)
+    lock_file_monitor.set_rate_limit(1000)
+    lock_file_monitor.connect("changed",on_file_lock_stat_changed,loop)
+    loop.run()
